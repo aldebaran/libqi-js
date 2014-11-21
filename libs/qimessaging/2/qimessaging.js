@@ -12,7 +12,7 @@ var io="undefined"==typeof module?{}:module.exports;(function(){(function(a,b){v
 
 
 
-function QiSession(host)
+function QiSession(connected, disconnected, host)
 {
   var _socket = io.connect("http://" + (host ? host : window.location.host),
                            { resource: "libs/qimessaging/2/socket.io",
@@ -82,6 +82,7 @@ function QiSession(host)
       _dfd[idm].reject("Call " + idm + " canceled: disconnected");
       delete _dfd[idm];
     }
+    disconnected();
   });
 
   function createMetaCall(obj, method, data)
@@ -117,8 +118,6 @@ function QiSession(host)
 
   this.service = createMetaCall("ServiceDirectory", "service");
 
-  this.socket = function()
-  {
-    return _socket;
-  }
+  var _self = this;
+  _socket.on('connect', function() { connected(_self); } );
 }
