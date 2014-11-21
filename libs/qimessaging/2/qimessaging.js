@@ -12,16 +12,11 @@ var io="undefined"==typeof module?{}:module.exports;(function(){(function(a,b){v
 
 
 
-function QiSession(host, resource)
+function QiSession(host)
 {
-  if (host == undefined)
-    host = window.location.host;
-  if (resource == undefined)
-    resource = "libs/qimessaging/2/socket.io";
-  if (host.substring(0, 7) != "http://")
-    host = "http://" + host;
-
-  var _socket = io.connect(host, { resource: resource });
+  var _socket = io.connect("http://" + (host ? host : window.location.host),
+                           { resource: "libs/qimessaging/2/socket.io",
+                             'force new connection': true });
   var _dfd = new Array();
   var _sigs = new Array();
   var _idm = 0;
