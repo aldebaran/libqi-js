@@ -10,13 +10,13 @@ import base64
 URL = None
 sid = 1
 
-class SetEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, bytearray):
-            return base64.b64encode(obj)
-        return json.JSONEncoder.default(self, obj)
+class QiMessagingHandler2(tornadio2.conn.SocketConnection):
 
-class QiMessagingHandler(tornadio2.conn.SocketConnection):
+    class SetEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, bytearray):
+                return list(obj)
+            return json.JSONEncoder.default(self, obj)
 
     def on_open(self, info):
         global sid
@@ -38,7 +38,7 @@ class QiMessagingHandler(tornadio2.conn.SocketConnection):
             evt = dict(name = mtype, args = { "result": data })
             if mtype != "signal":
                 evt["args"]["idm"] = idm
-            message = u'5:::%s' % (json.dumps(evt, cls=SetEncoder, allow_nan=False))
+            message = u'5:::%s' % (json.dumps(evt, cls=self.SetEncoder, allow_nan=False))
             tornado.ioloop.IOLoop.instance().add_callback(self.session.send_message, message)
         except (AttributeError, ValueError) as exc:
             self.reply(idm, "error", str(exc))
@@ -90,6 +90,41 @@ class QiMessagingHandler(tornadio2.conn.SocketConnection):
         self.qim = None
         print("[%d] Disconnected" % (self.sid))
 
+
+class QiMessagingHandler1_0(QiMessagingHandler2):
+
+    class SetEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, bytearray):
+                return base64.b64encode(obj)
+            return json.JSONEncoder.default(self, obj)
+
+    @tornadio2.event
+    def call(self, idm, params):
+        try:
+            service = params["obj"]
+            method = params["method"]
+            args = params["args"]
+            if service == "ServiceDirectory" and method == "service":
+                fut = self.qim.service(str(args[0]), _async = True)
+            elif method == "registerEvent":
+                obj = self.objs[service]
+                self.subs[idm] = -1
+                evt = getattr(obj, args[0])
+                fut = evt.connect(self.do_callback(service, args[0], idm), _async = True)
+            elif method == "unregisterEvent":
+                obj = self.objs[service]
+                evt = getattr(obj, args[0])
+                fut = evt.disconnect(args[1], _async = True)
+            else:
+                obj = self.objs[service]
+                met = getattr(obj, method)
+                fut = met(*args, _async = True)
+            fut.addCallback(self.do_reply(idm, method == "registerEvent"))
+        except (AttributeError, RuntimeError) as exc:
+            self.reply(idm, 'error', str(exc))
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         URL = "tcp://127.0.0.1:9559"
@@ -100,10 +135,9 @@ if __name__ == "__main__":
 
     QI_APP = qi.Application()
 
-    ROUTER = tornadio2.TornadioRouter(QiMessagingHandler)
-
     SOCK_APP = tornado.web.Application(
-      ROUTER.urls,
+      tornadio2.TornadioRouter(QiMessagingHandler1_0, namespace='1.0').urls +
+      tornadio2.TornadioRouter(QiMessagingHandler2, namespace='2').urls,
       socket_io_port = 8002
     )
 
