@@ -42,7 +42,14 @@ function QiSession(connected, disconnected, host)
       for (var i in signals)
       {
         var signalName = signals[i]["name"];
-        o[signalName] = createMetaSignal(pyobj, signalName);
+        o[signalName] = createMetaSignal(pyobj, signalName, false);
+      }
+
+      var properties = o.__MetaObject["properties"];
+      for (var i in properties)
+      {
+        var propertyName = properties[i]["name"];
+        o[signalName] = createMetaSignal(pyobj, propertyName, true);
       }
 
       _dfd[idm].resolve(o);
@@ -102,7 +109,7 @@ function QiSession(connected, disconnected, host)
     }
   }
 
-  function createMetaSignal(obj, signal)
+  function createMetaSignal(obj, signal, isProperty)
   {
     var s = new Object();
     _sigs[obj][signal] = new Array();
@@ -112,6 +119,19 @@ function QiSession(connected, disconnected, host)
     s.disconnect = function(l) {
       delete _sigs[obj][signal][l];
       return createMetaCall(obj, "unregisterEvent")(signal, l);
+    }
+
+    if (!isProperty)
+    {
+      return s;
+    }
+
+    s.setValue = function() {
+      var args = Array.prototype.slice.call(arguments, 0);
+      return createMetaCall(obj, "setValue", { obj: obj, signal: signal })(signal, args);
+    }
+    s.value = function() {
+      return createMetaCall(obj, "value", { obj: obj, signal: signal })(signal);
     }
     return s;
   }

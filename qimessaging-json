@@ -76,12 +76,20 @@ class QiMessagingHandler2(tornadio2.conn.SocketConnection):
                 obj = self.objs[service]
                 evt = getattr(obj, args[0])
                 fut = evt.disconnect(args[1], _async = True)
+            elif method == "value":
+                obj = self.objs[service]
+                prop = getattr(obj, args[0])
+                fut = prop.value(_async = True)
+            elif method == "setValue":
+                obj = self.objs[service]
+                prop = getattr(obj, args[0])
+                fut = prop.setValue(*args[1], _async = True)
             else:
                 obj = self.objs[service]
                 met = getattr(obj, method)
                 fut = met(*args, _async = True)
             fut.addCallback(self.do_reply(idm, method == "registerEvent"))
-        except (AttributeError, RuntimeError) as exc:
+        except (AttributeError, RuntimeError, Exception) as exc:
             self.reply(idm, 'error', str(exc))
 
     def on_close(self):
