@@ -20,18 +20,14 @@ class QiMessagingHandler(tornadio2.conn.SocketConnection):
 
     def on_open(self, info):
         global sid
-        self.info = info
         self.objs = dict()
         self.sid = sid
         self.subs = dict()
         sid = sid + 1
         self.qim = qi.Session()
         self.qim.connect(URL)
-        print("[%d] New connection from %s" % (self.sid, self.info.ip))
+        print("[%d] New connection from %s" % (self.sid, info.ip))
         self.qim.disconnected.connect(lambda x: self.close())
-
-    def on_message(self, message):
-        pass
 
     def reply(self, idm, mtype, data):
         try:
@@ -87,12 +83,6 @@ class QiMessagingHandler(tornadio2.conn.SocketConnection):
             fut.addCallback(self.do_reply(idm, method == "registerEvent"))
         except (AttributeError, RuntimeError) as exc:
             self.reply(idm, 'error', str(exc))
-
-    def on_qiclose(self):
-        try:
-            self.close()
-        except AttributeError:
-            pass
 
     def on_close(self):
         self.objs = dict()
