@@ -1,4 +1,5 @@
 <project version="3">
   <qibuild name="libqi-js" >
+    <depends runtime="true" buildtime="true" names="libqi-python"/>
   </qibuild>
 </project>
