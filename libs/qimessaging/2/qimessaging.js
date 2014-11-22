@@ -23,7 +23,6 @@ function QiSession(connected, disconnected, host)
 
   _socket.on('reply', function (data) {
     var idm = data["idm"];
-
     if (data["result"] != null && data["result"]["metaobject"] != undefined)
     {
       var o = new Object();
@@ -92,7 +91,7 @@ function QiSession(connected, disconnected, host)
     disconnected();
   });
 
-  function createMetaCall(obj, method, data)
+  function createMetaCall(obj, member, data)
   {
     return function() {
       var idm = ++_idm;
@@ -100,11 +99,11 @@ function QiSession(connected, disconnected, host)
       var promise = new Promise(function(resolve, reject) {
         _dfd[idm] = { resolve: resolve, reject: reject };
       });
-      if (method == "registerEvent")
+      if (args[0] == "connect")
       {
         _dfd[idm].__cbi = data;
       }
-      _socket.emit('call', { idm: idm, params: { obj: obj, method: method, args: args } });
+      _socket.emit('call', { idm: idm, params: { obj: obj, member: member, args: args } });
       return promise;
     }
   }
@@ -114,11 +113,11 @@ function QiSession(connected, disconnected, host)
     var s = new Object();
     _sigs[obj][signal] = new Array();
     s.connect = function(cb) {
-      return createMetaCall(obj, "registerEvent", { obj: obj, signal: signal, cb: cb })(signal);
+      return createMetaCall(obj, signal, { obj: obj, signal: signal, cb: cb })("connect");
     }
     s.disconnect = function(l) {
       delete _sigs[obj][signal][l];
-      return createMetaCall(obj, "unregisterEvent")(signal, l);
+      return createMetaCall(obj, signal)("disconnect", l);
     }
 
     if (!isProperty)
@@ -128,10 +127,10 @@ function QiSession(connected, disconnected, host)
 
     s.setValue = function() {
       var args = Array.prototype.slice.call(arguments, 0);
-      return createMetaCall(obj, "setValue", { obj: obj, signal: signal })(signal, args);
+      return createMetaCall(obj, signal).apply(this, [ "setValue" ].concat(args));
     }
     s.value = function() {
-      return createMetaCall(obj, "value", { obj: obj, signal: signal })(signal);
+      return createMetaCall(obj, signal)("value");
     }
     return s;
   }
