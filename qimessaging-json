@@ -10,28 +10,31 @@ import base64
 URL = None
 sid = 1
 
-class SetEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, bytearray):
-            return base64.b64encode(obj)
-        return json.JSONEncoder.default(self, obj)
+def is_member_of(o, mtype, name):
+    members = o.metaObject()[mtype]
+    for i in members:
+        if members[i]["name"] == name:
+            return True
+    return False
 
-class QiMessagingHandler(tornadio2.conn.SocketConnection):
+class QiMessagingHandler2(tornadio2.conn.SocketConnection):
+
+    class SetEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, bytearray):
+                return list(obj)
+            return json.JSONEncoder.default(self, obj)
 
     def on_open(self, info):
         global sid
-        self.info = info
         self.objs = dict()
         self.sid = sid
         self.subs = dict()
         sid = sid + 1
         self.qim = qi.Session()
         self.qim.connect(URL)
-        print("[%d] New connection from %s" % (self.sid, self.info.ip))
+        print("[%d] New connection from %s" % (self.sid, info.ip))
         self.qim.disconnected.connect(lambda x: self.close())
-
-    def on_message(self, message):
-        pass
 
     def reply(self, idm, mtype, data):
         try:
@@ -42,7 +45,7 @@ class QiMessagingHandler(tornadio2.conn.SocketConnection):
             evt = dict(name = mtype, args = { "result": data })
             if mtype != "signal":
                 evt["args"]["idm"] = idm
-            message = u'5:::%s' % (json.dumps(evt, cls=SetEncoder, allow_nan=False))
+            message = u'5:::%s' % (json.dumps(evt, cls=self.SetEncoder, allow_nan=False))
             tornado.ioloop.IOLoop.instance().add_callback(self.session.send_message, message)
         except (AttributeError, ValueError) as exc:
             self.reply(idm, "error", str(exc))
@@ -62,6 +65,47 @@ class QiMessagingHandler(tornadio2.conn.SocketConnection):
                     self.subs[idm] = fut.value()
                 self.reply(idm, "reply", fut.value())
         return rep
+
+    @tornadio2.event
+    def call(self, idm, params):
+        try:
+            service = params["obj"]
+            member = params["member"]
+            args = params["args"]
+            if service == "ServiceDirectory" and member == "service":
+                fut = self.qim.service(str(*args), _async = True)
+            else:
+                obj = self.objs[service]
+                attr = getattr(obj, member)
+                if args[0] == "connect" and is_member_of(obj, "signals", member):
+                    self.subs[idm] = -1
+                    fut = attr.connect(self.do_callback(service, member, idm), _async = True)
+                elif args[0] == "disconnect" and is_member_of(obj, "signals", member):
+                    fut = attr.disconnect(args[1], _async = True)
+                elif args[0] == "value" and is_member_of(obj, "properties", member):
+                    fut = attr.value(_async = True)
+                elif args[0] == "setValue" and is_member_of(obj, "properties",  member):
+                    fut = attr.setValue(args[1], _async = True)
+                else:
+                    fut = attr(*args, _async = True)
+            fut.addCallback(self.do_reply(idm, args[0] == "connect"))
+        except (AttributeError, RuntimeError, Exception) as exc:
+            self.reply(idm, 'error', str(exc))
+
+    def on_close(self):
+        self.objs = dict()
+        self.subs = dict()
+        self.qim = None
+        print("[%d] Disconnected" % (self.sid))
+
+
+class QiMessagingHandler1_0(QiMessagingHandler2):
+
+    class SetEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, bytearray):
+                return base64.b64encode(obj)
+            return json.JSONEncoder.default(self, obj)
 
     @tornadio2.event
     def call(self, idm, params):
@@ -88,17 +132,6 @@ class QiMessagingHandler(tornadio2.conn.SocketConnection):
         except (AttributeError, RuntimeError) as exc:
             self.reply(idm, 'error', str(exc))
 
-    def on_qiclose(self):
-        try:
-            self.close()
-        except AttributeError:
-            pass
-
-    def on_close(self):
-        self.objs = dict()
-        self.subs = dict()
-        self.qim = None
-        print("[%d] Disconnected" % (self.sid))
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -110,10 +143,9 @@ if __name__ == "__main__":
 
     QI_APP = qi.Application()
 
-    ROUTER = tornadio2.TornadioRouter(QiMessagingHandler)
-
     SOCK_APP = tornado.web.Application(
-      ROUTER.urls,
+      tornadio2.TornadioRouter(QiMessagingHandler1_0, namespace='1.0').urls +
+      tornadio2.TornadioRouter(QiMessagingHandler2, namespace='2').urls,
       socket_io_port = 8002
     )
 

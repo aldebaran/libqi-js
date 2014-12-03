@@ -4,3 +4,4 @@ project(libqi-js)
 find_package(qibuild)
 
 qi_install_program(qimessaging-json)
+install(DIRECTORY libs DESTINATION /var/www COMPONENT runtime)
