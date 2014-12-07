@@ -1,0 +1,130 @@
+<html>
+
+<head>
+<script src="/libs/qimessaging/2/qimessaging.js"></script>
+</head>
+
+<body>
+<script>
+function error(err)
+{
+  console.error(err);
+}
+
+new QiSession(function (session) {
+
+  // #1: session creation
+  if (session)
+    console.info("#1: ok");
+  else
+    console.log("#1: fail");
+
+  // #2: get proxy
+  session.service("JSTest").then(function (jstest) {
+    if (jstest)
+      console.info("#2: ok");
+    else
+      console.error("#2: fail");
+
+    return jstest;
+  }, error)
+
+  // #3: call returning no value
+  .then(function (jstest) {
+    jstest.constant_void().then(function () {
+      if (arguments.length == 1 && arguments[0] === undefined)
+        console.info("#3: ok");
+      else
+        console.error("#3: fail");
+    });
+    return jstest;
+  }, error)
+
+  // #4: call returning string
+  .then(function (jstest) {
+    jstest.constant_string().then(function (str) {
+      if (str == "lol")
+        console.info("#4: ok");
+      else
+        console.error("#4: fail");
+    });
+    return jstest;
+  }, error)
+
+  // #5: call returning argument
+  .then(function (jstest) {
+    var v = 123;
+    jstest.echo_value(v).then(function (ev) {
+      if (ev == v)
+        console.info("#5: ok");
+      else
+        console.error("#5: fail");
+    });
+    return jstest;
+  }, error)
+
+  // #6: property set and get
+  .then(function (jstest) {
+    var v = 4200;
+    jstest.property.setValue(v).then(function () {
+      jstest.property.value().then(function (ev) {
+        if (ev == v)
+          console.info("#6: ok");
+        else
+          console.info("#6: fail");
+      }, error);
+    }, error);
+    return jstest;
+  }, error)
+
+  // #7: property subscription
+  .then(function (jstest) {
+    var v = 3000;
+    var link;
+    jstest.property.connect(function cb(ev) {
+      if (ev == v)
+        console.info("#7: ok");
+      else
+        console.error("#7: fail");
+      jstest.property.disconnect(link);
+    }).then(function (l) {
+      link = l;
+      jstest.property.setValue(v);
+    })
+    return jstest;
+  }, error)
+
+  // #8: signal subscription
+  .then(function (jstest) {
+    console.warn("#8: not implemented");
+    return jstest;
+  }, error)
+
+  // #9: ALMemory compatibility
+  .then(function (jstest) {
+    session.service("ALMemory").then(function (alm) {
+      var v = "Testing ALMemory";
+      var key = "JSTest/9";
+      var link;
+      alm.subscriber(key).then(function (subscriber) {
+        subscriber.signal.connect(function (ev) {
+          if (ev == v)
+            console.info("#9: ok");
+          else
+            console.error("#9: fail");
+
+          subscriber.signal.disconnect(link);
+        }).then(function (l) {
+          link = l;
+          alm.raiseMicroEvent(key, v);
+        });
+      });
+    });
+    return jstest;
+  }, error);
+});
+</script>
+
+</body>
+
+</html>
