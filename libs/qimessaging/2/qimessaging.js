@@ -48,7 +48,7 @@ function QiSession(connected, disconnected, host)
       for (var i in properties)
       {
         var propertyName = properties[i]["name"];
-        o[signalName] = createMetaSignal(pyobj, propertyName, true);
+        o[propertyName] = createMetaSignal(pyobj, propertyName, true);
       }
 
       _dfd[idm].resolve(o);
