@@ -42,7 +42,9 @@ class QiMessagingHandler2(tornadio2.conn.SocketConnection):
                 o = len(self.objs)
                 self.objs[o] = data
                 data = { "pyobject": o, "metaobject": data.metaObject() }
-            evt = dict(name = mtype, args = { "result": data })
+            evt = dict(name = mtype, args = {})
+            if data is not None:
+                evt["args"]["result"] = data
             if mtype != "signal":
                 evt["args"]["idm"] = idm
             message = u'5:::%s' % (json.dumps(evt, cls=self.SetEncoder, allow_nan=False))
