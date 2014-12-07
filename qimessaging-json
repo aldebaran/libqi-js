@@ -79,18 +79,18 @@ class QiMessagingHandler2(tornadio2.conn.SocketConnection):
             else:
                 obj = self.objs[service]
                 attr = getattr(obj, member)
-                if args[0] == "connect" and is_member_of(obj, "signals", member):
+                if args != [] and args[0] == "connect" and is_member_of(obj, "signals", member):
                     self.subs[idm] = -1
                     fut = attr.connect(self.do_callback(service, member, idm), _async = True)
-                elif args[0] == "disconnect" and is_member_of(obj, "signals", member):
+                elif args != [] and args[0] == "disconnect" and is_member_of(obj, "signals", member):
                     fut = attr.disconnect(args[1], _async = True)
-                elif args[0] == "value" and is_member_of(obj, "properties", member):
+                elif args != [] and args[0] == "value" and is_member_of(obj, "properties", member):
                     fut = attr.value(_async = True)
-                elif args[0] == "setValue" and is_member_of(obj, "properties",  member):
+                elif args != [] and args[0] == "setValue" and is_member_of(obj, "properties",  member):
                     fut = attr.setValue(args[1], _async = True)
                 else:
                     fut = attr(*args, _async = True)
-            fut.addCallback(self.do_reply(idm, args[0] == "connect"))
+            fut.addCallback(self.do_reply(idm, args != [] and args[0] == "connect"))
         except (AttributeError, RuntimeError, Exception) as exc:
             self.reply(idm, 'error', str(exc))
 
