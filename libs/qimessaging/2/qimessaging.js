@@ -88,7 +88,11 @@ function QiSession(connected, disconnected, host)
       _dfd[idm].reject("Call " + idm + " canceled: disconnected");
       delete _dfd[idm];
     }
-    disconnected();
+
+    if (disconnected)
+    {
+      disconnected();
+    }
   });
 
   function createMetaCall(obj, member, data)
@@ -138,5 +142,10 @@ function QiSession(connected, disconnected, host)
   this.service = createMetaCall("ServiceDirectory", "service");
 
   var _self = this;
-  _socket.on('connect', function() { connected(_self); } );
+  _socket.on('connect', function() {
+    if (connected)
+    {
+      connected(_self);
+    }
+  });
 }
