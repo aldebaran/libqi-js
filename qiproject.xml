@@ -2,4 +2,5 @@
   <qibuild name="libqi-js" >
     <depends runtime="true" buildtime="true" names="libqi-python"/>
   </qibuild>
+  <maintainer email="ncornu@aldebaran.com">Nicolas Cornu</maintainer>
 </project>
